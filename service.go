@@ -91,7 +91,7 @@ type PriceService struct {
 }
 
 func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	coinType := r.FormValue("coinType")
+	coinType := r.FormValue("token")
 	result := NewPriceResult()
 	switch coinType {
 	case "bitcoin":
@@ -107,6 +107,7 @@ func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	result.OK = 1
 	if price, ok := ps.pm.PriceMap[coinType]; ok {
 		result.Data[coinType] = price
+		fmt.Printf("result %+v\n", result)
 		SendJSONOr500(w, result)
 		return
 	}
@@ -114,6 +115,7 @@ func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for coinType, price := range ps.pm.PriceMap {
 		result.Data[coinType] = price
 	}
+	fmt.Printf("result %+v\n", result)
 	SendJSONOr500(w, result)
 }
 
@@ -184,7 +186,7 @@ func main() {
 
 	priceService := &PriceService{pm: pm}
 
-	http.Handle("/price", priceService)
+	http.Handle("/api/price", priceService)
 
 	if err := http.ListenAndServe(":8081", http.DefaultServeMux); err != nil {
 		log.Fatalln(err)

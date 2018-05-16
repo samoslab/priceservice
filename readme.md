@@ -1,13 +1,13 @@
 Syntax:
 
-curl http://127.0.0.1:8081/price?coinType=all
+curl http://127.0.0.1:8081/api/price?token=all
 args:
-   coinType is skycoin, bitcoin, samos, all
+   token is skycoin, bitcoin, samos, all
 
 Example:
 
 ```
-curl http://127.0.0.1:8081/price?coinType=bitcoin
+curl http://127.0.0.1:8081/api/price?token=bitcoin
 {
     "ok": 1,
     "data": {
@@ -21,7 +21,7 @@ curl http://127.0.0.1:8081/price?coinType=bitcoin
 }
 ```
 ```
-curl http://127.0.0.1:8081/price?coinType=all
+curl http://127.0.0.1:8081/aip/price?token=all
 {
     "ok": 1,
     "data": {
