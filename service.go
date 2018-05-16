@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/samoslab/priceservice/service"
 )
@@ -13,6 +15,10 @@ import (
 //{"ok":{0|1},"data":{"price_usd":"xxx","price_btc":"xxxx"}}
 
 // Error500 respond with a 500 error and include a message
+var (
+	SamosName = "samos"
+)
+
 func Error500(w http.ResponseWriter, msg string) {
 	errorXXXMsg(w, http.StatusInternalServerError, msg)
 }
@@ -47,47 +53,138 @@ func SendJSONOr500(w http.ResponseWriter, m interface{}) {
 }
 
 type PriceResult struct {
-	OK   int `json:"ok"`
-	Data struct {
-		PriceUsd string `json:"price_usd"`
-		PriceBtc string `json:"price_btc"`
-		PriceCny string `json:"price_cny"`
-	} `json:"data"`
+	OK   int                  `json:"ok"`
+	Data map[string]PriceData `json:"data"`
+}
+
+func NewPriceResult() *PriceResult {
+	return &PriceResult{
+		OK:   0,
+		Data: map[string]PriceData{},
+	}
+}
+
+type PriceData struct {
+	Name     string `json:"name"`
+	PriceUsd string `json:"price_usd"`
+	PriceBtc string `json:"price_btc"`
+	PriceCny string `json:"price_cny"`
 }
 
 type PriceManager struct {
-	PriceMap map[string]PriceResult
+	PriceMap map[string]PriceData
 	Mutex    sync.Mutex
 }
 
-func HandlePrice(w http.ResponseWriter, r *http.Request) {
+func NewPriceManager(coinTypes []string) *PriceManager {
+	pm := &PriceManager{
+		PriceMap: map[string]PriceData{},
+	}
+	for _, ct := range coinTypes {
+		pm.PriceMap[ct] = PriceData{}
+	}
+	return pm
+}
+
+type PriceService struct {
+	pm *PriceManager
+}
+
+func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	coinType := r.FormValue("coinType")
-	rsp := &service.CoinMarketInfo{}
-	result := PriceResult{}
-	result.OK = 0
-	var err error
+	result := NewPriceResult()
 	switch coinType {
 	case "bitcoin":
-		rsp, err = service.GetCoinPriceInfo("bitcoin")
 	case "skycoin":
-		rsp, err = service.GetCoinPriceInfo("skycoin")
+	case SamosName:
+	case "all":
 	default:
+		fmt.Printf("unsupported coin type %s\n", coinType)
+		SendJSONOr500(w, result)
+		return
 	}
-	if err != nil {
-		fmt.Fprintf(w, "coinType %s err, %v", coinType, err)
+	fmt.Printf("coin type is %s\n", coinType)
+	result.OK = 1
+	if price, ok := ps.pm.PriceMap[coinType]; ok {
+		result.Data[coinType] = price
+		SendJSONOr500(w, result)
 		return
 	}
 
-	result.OK = 1
-	result.Data.PriceBtc = rsp.PriceBtc
-	result.Data.PriceUsd = rsp.PriceUsd
-	result.Data.PriceCny = rsp.PriceCny
+	for coinType, price := range ps.pm.PriceMap {
+		result.Data[coinType] = price
+	}
 	SendJSONOr500(w, result)
+}
+
+func ConstructResponse(rsp *service.CoinMarketInfo) PriceData {
+	return PriceData{
+		Name:     rsp.Name,
+		PriceBtc: rsp.PriceBtc,
+		PriceUsd: rsp.PriceUsd,
+		PriceCny: rsp.PriceCny,
+	}
+}
+
+func CalcuSamosPrice(pd PriceData) PriceData {
+	samosPriceData := PriceData{
+		Name:     SamosName,
+		PriceBtc: "0.000021",
+		PriceUsd: "unknown",
+		PriceCny: "unknown",
+	}
+	usd, err := strconv.ParseFloat(pd.PriceUsd, 10)
+	if err != nil {
+		return samosPriceData
+	}
+	cny, err := strconv.ParseFloat(pd.PriceCny, 10)
+	if err != nil {
+		return samosPriceData
+	}
+	samosUsd := usd * 0.000021
+	samosPriceData.PriceUsd = fmt.Sprintf("%0.4f", samosUsd)
+	samosCny := cny * 0.000021
+	samosPriceData.PriceCny = fmt.Sprintf("%0.4f", samosCny)
+	return samosPriceData
+}
+
+func CacheCoinInfo(pm *PriceManager) {
+	for {
+		for coinType, _ := range pm.PriceMap {
+			if coinType == SamosName {
+				continue
+			}
+			rsp, err := service.GetCoinPriceInfo(coinType)
+			if err != nil {
+				fmt.Printf("coinType %s get from coin market err, %v\n", coinType, err)
+				continue
+			}
+
+			priceInfo := ConstructResponse(rsp)
+			pm.Mutex.Lock()
+			pm.PriceMap[coinType] = priceInfo
+			// only for samos
+			if coinType == "bitcoin" {
+				pm.PriceMap[SamosName] = CalcuSamosPrice(priceInfo)
+			}
+			pm.Mutex.Unlock()
+		}
+
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func main() {
 
-	http.HandleFunc("/price", HandlePrice)
+	coinTypes := []string{"bitcoin", "skycoin"}
+	pm := NewPriceManager(coinTypes)
+
+	// get coin info from coinmarket
+	go CacheCoinInfo(pm)
+
+	priceService := &PriceService{pm: pm}
+
+	http.Handle("/price", priceService)
 
 	if err := http.ListenAndServe(":8081", http.DefaultServeMux); err != nil {
 		log.Fatalln(err)

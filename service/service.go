@@ -64,6 +64,6 @@ func GetCoinPriceInfo(coinType string) (*CoinMarketInfo, error) {
 		fmt.Printf("unmarshal err %v\n", err)
 		return nil, err
 	}
-	fmt.Printf("price btc %s, usd %s\n", priceInfo[0].PriceBtc, priceInfo[0].PriceUsd)
+	fmt.Printf("%s price btc %s, usd %s\n", coinType, priceInfo[0].PriceBtc, priceInfo[0].PriceUsd)
 	return &priceInfo[0], nil
 }
