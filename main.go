@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -73,16 +74,19 @@ type PriceData struct {
 
 type PriceManager struct {
 	PriceMap map[string]PriceData
+	Multiply string
 	Mutex    sync.Mutex
 }
 
-func NewPriceManager(coinTypes []string) *PriceManager {
+func NewPriceManager(coinTypes []string, multiply string) *PriceManager {
 	pm := &PriceManager{
 		PriceMap: map[string]PriceData{},
+		Multiply: multiply,
 	}
 	for _, ct := range coinTypes {
 		pm.PriceMap[ct] = PriceData{}
 	}
+
 	return pm
 }
 
@@ -128,10 +132,10 @@ func ConstructResponse(rsp *service.CoinMarketInfo) PriceData {
 	}
 }
 
-func CalcuSamosPrice(pd PriceData) PriceData {
+func CalcuSamosPrice(pd PriceData, multiply string) PriceData {
 	samosPriceData := PriceData{
 		Name:     SamosName,
-		PriceBtc: "0.000315",
+		PriceBtc: multiply,
 		PriceUsd: "unknown",
 		PriceCny: "unknown",
 	}
@@ -143,9 +147,13 @@ func CalcuSamosPrice(pd PriceData) PriceData {
 	if err != nil {
 		return samosPriceData
 	}
-	samosUsd := usd * 0.000315
+	fMultiply, err := strconv.ParseFloat(multiply, 10)
+	if err != nil {
+		return samosPriceData
+	}
+	samosUsd := usd * fMultiply
 	samosPriceData.PriceUsd = fmt.Sprintf("%0.4f", samosUsd)
-	samosCny := cny * 0.000315
+	samosCny := cny * fMultiply
 	samosPriceData.PriceCny = fmt.Sprintf("%0.4f", samosCny)
 	return samosPriceData
 }
@@ -167,7 +175,7 @@ func CacheCoinInfo(pm *PriceManager) {
 			pm.PriceMap[coinType] = priceInfo
 			// only for samos
 			if coinType == "bitcoin" {
-				pm.PriceMap[SamosName] = CalcuSamosPrice(priceInfo)
+				pm.PriceMap[SamosName] = CalcuSamosPrice(priceInfo, pm.Multiply)
 			}
 			pm.Mutex.Unlock()
 		}
@@ -178,8 +186,13 @@ func CacheCoinInfo(pm *PriceManager) {
 
 func main() {
 
+	var addr string
+	var multiply string
+	flag.StringVar(&addr, "addr", ":8181", "listen address :port")
+	flag.StringVar(&multiply, "multiply", "0.0000315", "samos price relative bitcoin")
+	flag.Parse()
 	coinTypes := []string{"bitcoin", "skycoin"}
-	pm := NewPriceManager(coinTypes)
+	pm := NewPriceManager(coinTypes, multiply)
 
 	// get coin info from coinmarket
 	go CacheCoinInfo(pm)
@@ -188,7 +201,7 @@ func main() {
 
 	http.Handle("/api/price", priceService)
 
-	if err := http.ListenAndServe(":8181", http.DefaultServeMux); err != nil {
+	if err := http.ListenAndServe(addr, http.DefaultServeMux); err != nil {
 		log.Fatalln(err)
 	}
 }
