@@ -131,7 +131,7 @@ func ConstructResponse(rsp *service.CoinMarketInfo) PriceData {
 func CalcuSamosPrice(pd PriceData) PriceData {
 	samosPriceData := PriceData{
 		Name:     SamosName,
-		PriceBtc: "0.000021",
+		PriceBtc: "0.000315",
 		PriceUsd: "unknown",
 		PriceCny: "unknown",
 	}
@@ -143,9 +143,9 @@ func CalcuSamosPrice(pd PriceData) PriceData {
 	if err != nil {
 		return samosPriceData
 	}
-	samosUsd := usd * 0.000021
+	samosUsd := usd * 0.000315
 	samosPriceData.PriceUsd = fmt.Sprintf("%0.4f", samosUsd)
-	samosCny := cny * 0.000021
+	samosCny := cny * 0.000315
 	samosPriceData.PriceCny = fmt.Sprintf("%0.4f", samosCny)
 	return samosPriceData
 }
@@ -172,7 +172,7 @@ func CacheCoinInfo(pm *PriceManager) {
 			pm.Mutex.Unlock()
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -188,7 +188,7 @@ func main() {
 
 	http.Handle("/api/price", priceService)
 
-	if err := http.ListenAndServe(":8081", http.DefaultServeMux); err != nil {
+	if err := http.ListenAndServe(":8181", http.DefaultServeMux); err != nil {
 		log.Fatalln(err)
 	}
 }
