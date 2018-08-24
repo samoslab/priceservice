@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/samoslab/priceservice/service"
 )
@@ -212,6 +213,8 @@ func CacheCoinInfo(pm *PriceManager) {
 			}
 			pm.Mutex.Unlock()
 		}
+		time.Sleep(180 * time.Second)
+
 	}
 
 }
