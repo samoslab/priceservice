@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/samoslab/priceservice/service"
 )
@@ -18,6 +17,7 @@ import (
 // Error500 respond with a 500 error and include a message
 var (
 	SamosName = "samos"
+	Yongbang  = "yongbang"
 )
 
 func Error500(w http.ResponseWriter, msg string) {
@@ -101,6 +101,7 @@ func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "bitcoin":
 	case "skycoin":
 	case SamosName:
+	case Yongbang:
 	case "all":
 	default:
 		fmt.Printf("unsupported coin type %s\n", coinType)
@@ -158,10 +159,39 @@ func CalcuSamosPrice(pd PriceData, multiply string) PriceData {
 	return samosPriceData
 }
 
+func SimulatePrice(name string, pd PriceData, multiply string) PriceData {
+	tokenPriceData := PriceData{
+		Name:     name,
+		PriceBtc: multiply,
+		PriceUsd: "unknown",
+		PriceCny: "unknown",
+	}
+	usd, err := strconv.ParseFloat(pd.PriceUsd, 10)
+	if err != nil {
+		return tokenPriceData
+	}
+	cny, err := strconv.ParseFloat(pd.PriceCny, 10)
+	if err != nil {
+		return tokenPriceData
+	}
+	fMultiply, err := strconv.ParseFloat(multiply, 10)
+	if err != nil {
+		return tokenPriceData
+	}
+	tokenUsd := usd * fMultiply
+	tokenPriceData.PriceUsd = fmt.Sprintf("%0.4f", tokenUsd)
+	tokenCny := cny * fMultiply
+	tokenPriceData.PriceCny = fmt.Sprintf("%0.4f", tokenCny)
+	return tokenPriceData
+}
+
 func CacheCoinInfo(pm *PriceManager) {
 	for {
 		for coinType, _ := range pm.PriceMap {
 			if coinType == SamosName {
+				continue
+			}
+			if coinType == Yongbang {
 				continue
 			}
 			rsp, err := service.GetCoinPriceInfo(coinType)
@@ -175,13 +205,15 @@ func CacheCoinInfo(pm *PriceManager) {
 			pm.PriceMap[coinType] = priceInfo
 			// only for samos
 			if coinType == "bitcoin" {
-				pm.PriceMap[SamosName] = CalcuSamosPrice(priceInfo, pm.Multiply)
+
+				pm.PriceMap[SamosName] = SimulatePrice(SamosName, priceInfo, pm.Multiply)
+
+				pm.PriceMap[Yongbang] = SimulatePrice(Yongbang, priceInfo, pm.Multiply)
 			}
 			pm.Mutex.Unlock()
 		}
-
-		time.Sleep(30 * time.Second)
 	}
+
 }
 
 func main() {
@@ -191,7 +223,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":8181", "listen address :port")
 	flag.StringVar(&multiply, "multiply", "0.0000315", "samos price relative bitcoin")
 	flag.Parse()
-	coinTypes := []string{"bitcoin", "skycoin"}
+	coinTypes := []string{"bitcoin", "skycoin", "samos", "yongbang"}
 	pm := NewPriceManager(coinTypes, multiply)
 
 	// get coin info from coinmarket
