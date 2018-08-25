@@ -19,6 +19,7 @@ import (
 var (
 	SamosName = "samos"
 	Yongbang  = "yongbang"
+	Shihu     = "shihu"
 )
 
 func Error500(w http.ResponseWriter, msg string) {
@@ -103,6 +104,7 @@ func (ps *PriceService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "skycoin":
 	case SamosName:
 	case Yongbang:
+	case Shihu:
 	case "all":
 	default:
 		fmt.Printf("unsupported coin type %s\n", coinType)
@@ -195,6 +197,9 @@ func CacheCoinInfo(pm *PriceManager) {
 			if coinType == Yongbang {
 				continue
 			}
+			if coinType == Shihu {
+				continue
+			}
 			rsp, err := service.GetCoinPriceInfo(coinType)
 			if err != nil {
 				fmt.Printf("coinType %s get from coin market err, %v\n", coinType, err)
@@ -210,6 +215,8 @@ func CacheCoinInfo(pm *PriceManager) {
 				pm.PriceMap[SamosName] = SimulatePrice(SamosName, priceInfo, pm.Multiply)
 
 				pm.PriceMap[Yongbang] = SimulatePrice(Yongbang, priceInfo, pm.Multiply)
+				pm.PriceMap[Shihu] = SimulatePrice(Shihu, priceInfo, pm.Multiply)
+
 			}
 			pm.Mutex.Unlock()
 		}
@@ -226,7 +233,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":8181", "listen address :port")
 	flag.StringVar(&multiply, "multiply", "0.0000315", "samos price relative bitcoin")
 	flag.Parse()
-	coinTypes := []string{"bitcoin", "skycoin", "samos", "yongbang"}
+	coinTypes := []string{"bitcoin", "skycoin", "samos", "yongbang", "shihu"}
 	pm := NewPriceManager(coinTypes, multiply)
 
 	// get coin info from coinmarket
