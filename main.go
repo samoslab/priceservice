@@ -169,6 +169,11 @@ func SimulatePrice(name string, pd PriceData, multiply string) PriceData {
 		PriceUsd: "unknown",
 		PriceCny: "unknown",
 	}
+	fmt.Println()
+	fmt.Println(multiply)
+
+	fmt.Println(pd.PriceUsd)
+
 	usd, err := strconv.ParseFloat(pd.PriceUsd, 10)
 	if err != nil {
 		return tokenPriceData
@@ -185,6 +190,13 @@ func SimulatePrice(name string, pd PriceData, multiply string) PriceData {
 	tokenPriceData.PriceUsd = fmt.Sprintf("%0.4f", tokenUsd)
 	tokenCny := cny * fMultiply
 	tokenPriceData.PriceCny = fmt.Sprintf("%0.4f", tokenCny)
+
+	if name == "shihu" {
+		tokenCny := 1.5
+		tokenPriceData.PriceCny = fmt.Sprintf("%0.4f", tokenCny)
+
+	}
+
 	return tokenPriceData
 }
 
@@ -211,6 +223,11 @@ func CacheCoinInfo(pm *PriceManager) {
 			pm.PriceMap[coinType] = priceInfo
 			// only for samos
 			if coinType == "bitcoin" {
+
+				fmt.Print(priceInfo.Name)
+
+				fmt.Print(priceInfo.PriceBtc)
+				fmt.Print(priceInfo.PriceCny)
 
 				pm.PriceMap[SamosName] = SimulatePrice(SamosName, priceInfo, pm.Multiply)
 
