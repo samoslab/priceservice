@@ -195,6 +195,12 @@ func SimulatePrice(name string, pd PriceData, multiply string) PriceData {
 		tokenCny := 1.5
 		tokenPriceData.PriceCny = fmt.Sprintf("%0.4f", tokenCny)
 
+	} else if name == "yongbang" {
+		tokenCny := 0.1
+		tokenUsd := 0.014705882352941178
+		tokenPriceData.PriceCny = fmt.Sprintf("%0.4f", tokenCny)
+		tokenPriceData.PriceUsd = fmt.Sprintf("%0.4f", tokenUsd)
+
 	}
 
 	return tokenPriceData
